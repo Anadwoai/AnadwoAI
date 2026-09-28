@@ -1,4 +1,6 @@
 streamlit
-gtts
+gTTS
 Pillow
 requests
+moviepy
+imageio-ffmpeg
