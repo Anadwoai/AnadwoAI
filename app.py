@@ -1,75 +1,32 @@
 import streamlit as st
 from gtts import gTTS
 from PIL import Image
-import requests, os, re
-import tempfile
+import requests
 from io import BytesIO
-from moviepy.editor import *
+import time
 
-st.set_page_config(
- page_title="Anadwo AI",
- page_icon="🌙")
-
-st.title("🌙 Anadwo AI")
-st.write("Text to Video")
-
-story = st.text_area(
- "Story",
- "My name is Abena from Tafo Kumasi. I am about to make the biggest mistake of my life.",
- height=100)
-
-def get_img(p):
- short = p[:20]
- base = "https://image.pollinations.ai/prompt/"
- url = base + short + " Ghana girl"
- try:
-  r = requests.get(url, timeout=20)
-  return Image.open(BytesIO(r.content))
- except:
-  return Image.new(
-   'RGB',(720,1280),
-   color=(15,15,30))
-
-def split_t(t):
- s = re.split(r'[.!?]+', t)
- out = []
- for x in s:
-  if len(x.strip())>10:
-   out.append(x.strip())
- return out[:5]
-
-if st.button("Generate Video"):
- sents = split_t(story)
- st.info(f"Making {len(sents)} scenes")
- tmp = tempfile.mkdtemp()
- clips = []
- bar = st.progress(0)
- for i, sent in enumerate(sents):
-  bar.progress((i+1)/len(sents))
-  ap = os.path.join(tmp, f"a{i}.mp3")
-  gTTS(text=sent, lang="en").save(ap)
-  img = get_img(sent)
-  ip = os.path.join(tmp, f"i{i}.jpg")
-  img.save(ip)
-  ac = AudioFileClip(ap)
-  ic = ImageClip(ip)
-  ic = ic.set_duration(
-   ac.duration+0.5)
-  ic = ic.set_audio(ac)
-  ic = ic.resize(height=720)
-  clips.append(ic)
- final = concatenate_videoclips(
-  clips, method="compose")
- out = os.path.join(tmp, "v.mp4")
- final.write_videofile(
-  out, fps=24,
-  codec='libx264',
-  audio_codec='aac',
-  logger=None)
- st.success("Ready!")
- st.video(out)
- with open(out,"rb") as f:
-  st.download_button(
-   "Download MP4",
-   f,
-   file_name="anadwo.mp4")
+st.set_page_config(page_title="Anadwo AI", page_icon="🌙")
+st.title("🌙 Anadwo AI - Text to Video (Ghana)")
+story = st.text_area("Write your Ghana story:", "Abena was a brave girl in Kumasi who found a magical calabash under a baobab tree...", height=150)
+if st.button("🎬 Generate Video Story", type="primary"):
+    sentences = [s.strip() for s in story.split('.') if s.strip()][:4]
+    st.info(f"Creating {len(sentences)} scenes...")
+    for i, sentence in enumerate(sentences):
+        st.subheader(f"Scene {i+1}: {sentence}")
+        prompt = f"ghanaian children's storybook illustration, {sentence}, vibrant colors, african art"
+        url = f"https://image.pollinations.ai/prompt/{prompt.replace(' ', '%20')}"
+        try:
+            resp = requests.get(url, timeout=20)
+            img = Image.open(BytesIO(resp.content))
+            st.image(img, use_column_width=True)
+        except:
+            st.warning("Image failed")
+        try:
+            tts = gTTS(text=sentence, lang='en', tld='com.ng')
+            tts.save(f"scene_{i}.mp3")
+            st.audio(f"scene_{i}.mp3")
+        except:
+            st.error("Voice failed")
+        time.sleep(1)
+    st.success("✅ Anadwo Story Complete!")
+    st.balloons()
