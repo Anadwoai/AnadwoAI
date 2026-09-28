@@ -2,5 +2,3 @@ streamlit
 gTTS
 Pillow
 requests
-moviepy==1.0.3
-imageio-ffmpeg
