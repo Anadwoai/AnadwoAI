@@ -8,41 +8,65 @@ import requests, urllib.parse, re, os, time
 from io import BytesIO
 from moviepy.editor import ImageClip, AudioFileClip, concatenate_videoclips, CompositeVideoClip
 
-st.set_page_config(page_title="AnadwoAI", page_icon="🎬", layout="centered")
+st.set_page_config(page_title="AnadwoAI", page_icon="A", layout="centered")
+st.title("ANADWOAI.COM")
+st.caption("Ghana's Fliki - Any story to video")
 
-st.markdown("""
-<style>
-header {visibility:hidden;}
-.block-container {padding-top:0; padding-bottom:90px; max-width:420px;}
-.anadwo-top {background:#FF0055; padding:12px; display:flex; justify-content:space-between; align-items:center; border-radius:0 0 18px 18px; margin:-20px -10px 10px -10px;}
-.logo-pill {background:white; color:#FF0055; padding:5px 14px; border-radius:20px; font-weight:900; font-size:13px;}
-.card {border-radius:18px; padding:14px; color:white; height:110px; margin-bottom:10px;}
-.bottom-nav {position:fixed; bottom:0; left:0; right:0; background:white; display:flex; justify-content:space-around; padding:10px; border-top:1px solid #eee; z-index:999;}
-</style>
-""", unsafe_allow_html=True)
+story = st.text_area("Write ANY story here:", "My name is Kofi. I am 22 years old. I live in Accra. I lost my motorbike last week. I went to the police station. The officer said it will cost 2000 cedis. I had only 100 cedis. I cried all night.", height=150)
 
-st.markdown("""
-<div class="anadwo-top">
-  <span class="logo-pill">ANADWOAI.COM</span>
-  <span style="color:white;">+ ◧ ⋮</span>
-</div>
-<div style="text-align:center;">
-  <b>Let's get started, Philip</b><br>
-  <small style="color:#FF0055;">Powered by ANADWOAI 🇬🇭</small>
-</div>
-""", unsafe_allow_html=True)
+seed = st.number_input("Face Seed (same = same person)", value=4422)
 
-st.write("")
-c1, c2, c3 = st.columns(3)
-c1.markdown("<div style='background:#FF0055; color:white; padding:6px; border-radius:20px; text-align:center; font-size:12px;'>Video</div>", unsafe_allow_html=True)
-c2.markdown("<div style='background:#f5f5f5; padding:6px; border-radius:20px; text-align:center; font-size:12px;'>Voiceover</div>", unsafe_allow_html=True)
-c3.markdown("<div style='background:#f5f5f5; padding:6px; border-radius:20px; text-align:center; font-size:12px;'>Design</div>", unsafe_allow_html=True)
+def get_img(prompt, sd):
+    url = "https://image.pollinations.ai/prompt/" + urllib.parse.quote_plus(prompt) + "?width=720&height=1280&seed=" + str(sd) + "&model=flux&nologo=true"
+    for _ in range(3):
+        try:
+            r = requests.get(url, timeout=60, headers={"User-Agent":"Mozilla/5.0"})
+            if r.status_code == 200 and len(r.content) > 25000:
+                return Image.open(BytesIO(r.content)).convert("RGB")
+        except:
+            pass
+        time.sleep(2)
+    return None
 
-idea = st.text_area("Story", placeholder="Enter your AnadwoAI video idea, script, or story... e.g. Kofi goes to school everyday. He plays with his friends...", height=130, label_visibility="collapsed")
-
-create_btn = st.button("Create with AnadwoAI ->", type="primary", use_container_width=True)
-
-st.markdown("**AnadwoAI workflows**")
-st.markdown("""
-<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-  <div class="card" style="background:linear-gradient(135deg,#FF5A5F,#C70039);"><b
+if st.button("GENERATE ANY STORY - FLIKI STYLE", type="primary", use_container_width=True):
+    sentences = [s.strip() for s in re.split(r'[.\n]+', story) if len(s.strip()) > 8][:6]
+    clips = []
+    prog = st.progress(0)
+    
+    for i, sent in enumerate(sentences):
+        prog.progress((i + 1) / len(sentences))
+        st.write(f"Scene {i+1}: {sent}")
+        
+        prompt = f"photorealistic cinematic, Ghanaian person, same face, consistent, scene {sent}, 8k vertical 9:16"
+        img = get_img(prompt, int(seed) + i*4)
+        
+        if img is None:
+            st.warning("Retrying image")
+            continue
+            
+        img_path = f"ana_{i}.jpg"
+        img.save(img_path)
+        st.image(img, use_container_width=True)
+        
+        aud_path = f"ana_{i}.mp3"
+        gTTS(text=sent, lang='en', tld='com.ng').save(aud_path)
+        st.audio(aud_path)
+        
+        try:
+            audio = AudioFileClip(aud_path)
+            base = ImageClip(img_path).set_duration(audio.duration).resize(height=1280).set_audio(audio)
+            sub = Image.new('RGBA', (720, 120), (0,0,0,0))
+            draw = ImageDraw.Draw(sub)
+            draw.text((20,20), sent[:50], fill="yellow", stroke_fill="black", stroke_width=3)
+            sp = f"sub_{i}.png"
+            sub.save(sp)
+            overlay = ImageClip(sp).set_duration(audio.duration).set_pos(('center', 0.8))
+            final = CompositeVideoClip([base, overlay], size=(720,1280))
+            clips.append(final)
+        except Exception as e:
+            st.write(e)
+    
+    if clips:
+        out = "AnadwoAI_Video.mp4"
+        final_video = concatenate_videoclips(clips, method="compose")
+        final_video
